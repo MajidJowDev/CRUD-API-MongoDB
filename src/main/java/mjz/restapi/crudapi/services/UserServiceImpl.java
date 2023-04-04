@@ -1,9 +1,12 @@
 package mjz.restapi.crudapi.services;
 
+import lombok.extern.slf4j.Slf4j;
 import mjz.restapi.crudapi.api.v1.mapper.UserMapper;
 import mjz.restapi.crudapi.api.v1.model.UserDTO;
+import mjz.restapi.crudapi.config.RabbitMQConfig;
 import mjz.restapi.crudapi.domain.User;
 import mjz.restapi.crudapi.repositories.UserRepository;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -14,20 +17,23 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static java.util.Arrays.stream;
 
+@Slf4j
 @Service
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
 
-    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper) {
+    private final RabbitTemplate rabbitTemplate;
+
+    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper, RabbitTemplate rabbitTemplate) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     //todo: refactor this method for pagination with correct format
@@ -84,6 +90,8 @@ public class UserServiceImpl implements UserService {
         tobeSavedUser.setAvatar(null);
         UserDTO savedUserDto = saveAndReturnDto(tobeSavedUser);
 
+        sendRabbitMessage(savedUserDto);
+
         return savedUserDto;
     }
 
@@ -93,6 +101,8 @@ public class UserServiceImpl implements UserService {
         User tobeSavedUser = userMapper.userDtoToUser(userDTO);
         tobeSavedUser.setAvatar(avatar.getBytes());
         UserDTO savedUserDto = saveAndReturnDto(tobeSavedUser);
+
+        sendRabbitMessage(savedUserDto);
 
         return savedUserDto;
     }
@@ -150,5 +160,14 @@ public class UserServiceImpl implements UserService {
         }
         return returnDto;
 
+    }
+
+    private void sendRabbitMessage(UserDTO userDTO) {
+        log.info("Sending Rabbit Message!!!");
+
+        String message = "Username Created, Id: " + userDTO.getId() + ", First name: " + userDTO.getFirst_name() + ", Last name: " + userDTO.getLast_name();
+        rabbitTemplate.convertAndSend(RabbitMQConfig.MESSAGE_QUEUE, message);
+        //rabbitTemplate.convertAndSend(RabbitMQConfig.MESSAGE_QUEUE, userDTO);
+        log.info("Rabbit Message sent");
     }
 }
