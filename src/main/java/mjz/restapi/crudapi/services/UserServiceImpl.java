@@ -10,6 +10,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Base64Utils;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,13 +29,15 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-
     private final RabbitTemplate rabbitTemplate;
+    private final JavaMailSender mailSender;
 
-    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper, RabbitTemplate rabbitTemplate) {
+
+    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper, RabbitTemplate rabbitTemplate, JavaMailSender mailSender) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.rabbitTemplate = rabbitTemplate;
+        this.mailSender = mailSender;
     }
 
     //todo: refactor this method for pagination with correct format
@@ -91,6 +95,7 @@ public class UserServiceImpl implements UserService {
         UserDTO savedUserDto = saveAndReturnDto(tobeSavedUser);
 
         sendRabbitMessage(savedUserDto);
+        sendEmail(savedUserDto);
 
         return savedUserDto;
     }
@@ -103,6 +108,7 @@ public class UserServiceImpl implements UserService {
         UserDTO savedUserDto = saveAndReturnDto(tobeSavedUser);
 
         sendRabbitMessage(savedUserDto);
+        sendEmail(savedUserDto);
 
         return savedUserDto;
     }
@@ -170,4 +176,15 @@ public class UserServiceImpl implements UserService {
         //rabbitTemplate.convertAndSend(RabbitMQConfig.MESSAGE_QUEUE, userDTO);
         log.info("Rabbit Message sent");
     }
+
+    private void sendEmail(UserDTO userDTO) {
+        String body = "Username Created, Id: " + userDTO.getId() + ", First name: " + userDTO.getFirst_name() + ", Last name: " + userDTO.getLast_name();
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("abcd@email.com");
+        message.setTo("efg@email.com");
+        message.setSubject("User created");
+        message.setText(body);
+        mailSender.send(message);
+    }
+
 }
