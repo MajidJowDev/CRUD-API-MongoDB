@@ -1,12 +1,17 @@
 package mjz.restapi.crudapi.services;
 
 import mjz.restapi.crudapi.api.v1.model.UserDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
 
 public interface UserService {
+
+
+    Page<UserDTO> getAllUsersPageable(Pageable pageable);
     List<UserDTO> getAllUsers();
     UserDTO getUserById(String id) throws Exception;
     UserDTO createNewUser(UserDTO userDTO);

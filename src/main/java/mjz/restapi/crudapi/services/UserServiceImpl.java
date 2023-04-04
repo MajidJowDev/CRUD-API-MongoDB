@@ -4,6 +4,9 @@ import mjz.restapi.crudapi.api.v1.mapper.UserMapper;
 import mjz.restapi.crudapi.api.v1.model.UserDTO;
 import mjz.restapi.crudapi.domain.User;
 import mjz.restapi.crudapi.repositories.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Base64Utils;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,6 +28,26 @@ public class UserServiceImpl implements UserService {
     public UserServiceImpl(UserRepository userRepository, UserMapper userMapper) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
+    }
+
+    //todo: refactor this method for pagination with correct format
+    @Override
+    public Page<UserDTO> getAllUsersPageable(Pageable pageable) {
+        List<UserDTO> users = userRepository.findAll(pageable)
+                .stream()
+                .map(user -> {
+                    UserDTO userDTO = userMapper.userToUserDTO(user);
+                    if(user.getAvatar() != null) {
+                        userDTO.setAvatarBase64(bytesToBase64Converter(user.getAvatar()));
+                    }
+                    return userDTO;
+                }).collect(Collectors.toList());
+
+        //Page<Foo> page = new PageImpl<Foo>(fooList.subList(start, end), pageable, fooList.size());
+        Page<UserDTO> pagedUsers = new PageImpl<UserDTO>(users.subList(0, users.size() - 1 ), pageable, users.size());
+        return pagedUsers;
+        //return new PageImpl<>(users);
+
     }
 
     @Override
