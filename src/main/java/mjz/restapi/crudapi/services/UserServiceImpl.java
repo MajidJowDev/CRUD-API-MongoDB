@@ -2,19 +2,24 @@ package mjz.restapi.crudapi.services;
 
 import mjz.restapi.crudapi.api.v1.mapper.UserMapper;
 import mjz.restapi.crudapi.api.v1.model.UserDTO;
+import mjz.restapi.crudapi.api.v1.model.UserDtoData;
 import mjz.restapi.crudapi.domain.User;
 import mjz.restapi.crudapi.repositories.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Base64Utils;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.IOException;
+import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static java.util.Arrays.stream;
@@ -24,10 +29,14 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final RestTemplate restTemplate;
+    private final String api_url;
 
-    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper) {
+    public UserServiceImpl(UserRepository userRepository, UserMapper userMapper, RestTemplate restTemplate, @Value("${api.url}") String api_url) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
+        this.restTemplate = restTemplate;
+        this.api_url = api_url;
     }
 
     //todo: refactor this method for pagination with correct format
@@ -66,6 +75,22 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public List<UserDTO> saveUsersFromOtherAPI() throws IOException {
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder
+                .fromUriString(api_url);
+                //.queryParam("limit", limit);
+
+        UserDtoData users = restTemplate.getForObject(uriBuilder.toUriString(), UserDtoData.class );
+
+        for (UserDTO userData: users.getData() ) {
+            createNewUserFromAPI(userData);
+        }
+
+        return getAllUsers();
+
+    }
+
+    @Override
     public UserDTO getUserById(String id) throws Exception {
 
         return userRepository.findById(id)
@@ -96,6 +121,15 @@ public class UserServiceImpl implements UserService {
 
         return savedUserDto;
     }
+
+    public UserDTO createNewUserFromAPI(UserDTO userDTO) throws IOException {
+        User tobeSavedUser = userMapper.userDtoToUser(userDTO);
+        tobeSavedUser.setAvatar(readBytesOfFileFromUrl(userDTO.getAvatarBase64()));
+        UserDTO savedUserDto = saveAndReturnDto(tobeSavedUser);
+
+        return savedUserDto;
+    }
+
 
     @Override
     public UserDTO updateUserByDto(String id, UserDTO userDTO) throws Exception {
@@ -150,5 +184,49 @@ public class UserServiceImpl implements UserService {
         }
         return returnDto;
 
+    }
+
+    private byte[] readBytesOfFileFromUrl(String fileUrl) throws IOException {
+
+        URL url = new URL(fileUrl);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        InputStream is = null;
+        try {
+            is = url.openStream ();
+            byte[] byteChunk = new byte[1024]; // Or whatever size you want to read in at a time.
+            int n;
+
+            while ( (n = is.read(byteChunk)) > 0 ) {
+                baos.write(byteChunk, 0, n);
+            }
+            return baos.toByteArray();
+        }
+        catch (IOException e) {
+            System.err.printf ("Failed while reading bytes from %s: %s", url.toExternalForm(), e.getMessage());
+            e.printStackTrace ();
+            // Perform any other exception handling that's appropriate.
+            return null;
+        }
+        finally {
+            if (is != null) {
+                is.close();
+            }
+        }
+
+        /*
+        try (BufferedInputStream in = new BufferedInputStream(new URL(url).openStream());
+             FileOutputStream fileOutputStream = new FileOutputStream(new URL(url).getFile())) {
+            byte[] dataBuffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
+                fileOutputStream.write(dataBuffer, 0, bytesRead);
+            }
+            return dataBuffer;
+        } catch (IOException e) {
+            // handle exception
+            return null;
+        }
+
+         */
     }
 }

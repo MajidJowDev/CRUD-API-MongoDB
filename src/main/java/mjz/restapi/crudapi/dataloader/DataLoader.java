@@ -29,8 +29,8 @@ public class DataLoader implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        loadUsers();
-        fakeDataGenerator(100);
+        //loadUsers();
+        //fakeDataGenerator(100);
     }
 
     private void loadUsers() {

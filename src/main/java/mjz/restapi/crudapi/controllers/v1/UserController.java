@@ -1,6 +1,7 @@
 package mjz.restapi.crudapi.controllers.v1;
 
 import mjz.restapi.crudapi.api.v1.model.UserDTO;
+import mjz.restapi.crudapi.api.v1.model.UserDtoData;
 import mjz.restapi.crudapi.services.UserService;
 import org.springframework.beans.support.PagedListHolder;
 import org.springframework.data.domain.*;
@@ -78,6 +79,14 @@ public class UserController {
     @ResponseStatus(HttpStatus.OK)
     public List<UserDTO> getAllUsers() {
         return userService.getAllUsers();
+    }
+
+
+
+    @PostMapping("/save/all")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<UserDTO> getAllUsersFromAPI() throws IOException {
+        return userService.saveUsersFromOtherAPI();
     }
 
     @GetMapping("/{id}")
